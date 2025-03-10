@@ -22,7 +22,9 @@ import (
 type PKI struct {
 	path                string
 	certs               map[string]map[string]*x509.Certificate
+	certsC              chan *x509.Certificate
 	crls                map[string]*x509.RevocationList
+	crlsC               chan *x509.RevocationList
 	crlRawSize          int
 	expiredCertsCounter int
 	vault               *vaultapi.Client
