@@ -131,13 +131,14 @@ func entrypoint() {
 
 	vaultcli := vault.ClientWrapper{}
 	vaultcli.Init()
-
+	slog.Info("Vault client initialized")
 	pkiMon := vaultMon.PKIMon{}
+
 	err := pkiMon.Init(vaultcli.Client, viper.GetBool("collect_ca"), viper.GetBool("collect_certs"))
 	if err != nil {
 		slog.Error("PKIMon initialization failed", "error", err)
 	}
-
+	slog.Info("PKI monitor initialized")
 	pkiMon.Watch(viper.GetDuration("fetch_interval"))
 
 	if viper.GetBool("prometheus") || !viper.GetBool("influx") {

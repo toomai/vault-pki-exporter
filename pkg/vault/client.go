@@ -230,6 +230,7 @@ func (vault *ClientWrapper) authK8S() {
 }
 
 func (vault *ClientWrapper) authApprole() {
+	slog.Info("Attempting Approle authentication.")
 	mount := os.Getenv("VAULT_AUTH_MOUNT")
 	if mount == "" {
 		mount = "approle"
