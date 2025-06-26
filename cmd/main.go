@@ -133,7 +133,7 @@ func entrypoint() {
 	vaultcli.Init()
 
 	pkiMon := vaultMon.PKIMon{}
-	err := pkiMon.Init(vaultcli.Client, viper.GetBool("collect_ca"), viper.GetBool("collect_certs"))
+	err := pkiMon.Init(vaultcli.Client, viper.GetBool("collect_ca"), viper.GetBool("collect_certs"), viper.GetBool("prometheus") || !viper.GetBool("influx"))
 	if err != nil {
 		slog.Error("PKIMon initialization failed", "error", err)
 	}

@@ -33,11 +33,13 @@ type PKI struct {
 // PKIMon helps watch all the possible PKI secrets engines
 type PKIMon struct {
 	pkis        map[string]*PKI
+	deletedPkis chan string
 	vault       *vaultapi.Client
 	mux         sync.Mutex
 	Loaded      bool
 	CollectCa   bool
 	CollectCert bool
+	CleanupPKIs bool
 }
 
 var loadCertsDuration = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -58,11 +60,15 @@ var loadCertsLimitDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 })
 
 // Init makes a new Vault client
-func (mon *PKIMon) Init(vault *vaultapi.Client, collectCa bool, collectCert bool) error {
+func (mon *PKIMon) Init(vault *vaultapi.Client, collectCa bool, collectCert bool, cleanupPKIs bool) error {
 	mon.vault = vault
 	mon.pkis = make(map[string]*PKI)
 	mon.CollectCa = collectCa
 	mon.CollectCert = collectCert
+	if cleanupPKIs {
+		mon.CleanupPKIs = true
+		mon.deletedPkis = make(chan string, 50)
+	}
 	return nil
 }
 
@@ -85,6 +91,15 @@ func (mon *PKIMon) loadPKI() error {
 				pki := PKI{path: name, vault: mon.vault, certs: make(map[string]map[string]*x509.Certificate)}
 				mon.pkis[name] = &pki
 				slog.Info("PKI loaded", "pki", pki.path)
+			}
+		}
+	}
+	if mon.CleanupPKIs {
+		for name, mount := range mon.pkis {
+			if _, ok := mounts[name]; !ok {
+				delete(mon.pkis, name)
+				mon.deletedPkis <- name
+				slog.Info("PKI unloaded", "pki", mount.path)
 			}
 		}
 	}

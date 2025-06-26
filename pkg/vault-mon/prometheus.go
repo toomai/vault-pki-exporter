@@ -66,6 +66,18 @@ func PromWatchCerts(pkimon *PKIMon, interval time.Duration) {
 		Help:    "Duration of promWatchCerts execution",
 		Buckets: prometheus.ExponentialBuckets(0.0001, 4, 10),
 	})
+	metrics := [10]*prometheus.MetricVec{
+		expiry.MetricVec,
+		age.MetricVec,
+		startdate.MetricVec,
+		enddate.MetricVec,
+		certcount.MetricVec,
+		expiredCertCount.MetricVec,
+		crlExpiry.MetricVec,
+		crlNextupdate.MetricVec,
+		crlByteSize.MetricVec,
+		crlLength.MetricVec,
+	}
 	go func() {
 		for {
 			startTime := time.Now()
@@ -74,10 +86,8 @@ func PromWatchCerts(pkimon *PKIMon, interval time.Duration) {
 			revokedCerts := make(map[string]struct{})
 
 			slog.Debug("Starting new PromWatchCerts loop", "interval_seconds", interval.Seconds(), "pkis_count", len(pkis))
-
 			for pkiname, pki := range pkis {
 				slog.Info("Processing PKI", "pki", pkiname)
-
 				for _, crl := range pki.GetCRLs() {
 					if crl != nil {
 						issuer := crl.Issuer.CommonName
@@ -133,6 +143,21 @@ func PromWatchCerts(pkimon *PKIMon, interval time.Duration) {
 				slog.Info("PKI Prometheus metrics updated, sleeping", "pki", pkiname, "total_certs", len(pki.certs), "expired_certs", pki.expiredCertsCounter, "duration_seconds", duration, "interval", interval)
 			}
 			time.Sleep(interval)
+		}
+	}()
+	// Start a routine which will consume delete PKI channel and clean registred prometheus metrics
+	go func() {
+		slog.Debug("Starting new Prometheus cleanup routine")
+		for pki := range pkimon.deletedPkis {
+			slog.Info("Deleting metrics for delete mount", "mount", pki)
+			labels := prometheus.Labels{
+				"source": pki,
+			}
+			for _, metric := range metrics {
+				deleted := metric.DeletePartialMatch(labels)
+				slog.Info("Deleted metrics", "pki", pki, "amount", deleted)
+			}
+
 		}
 	}()
 }
