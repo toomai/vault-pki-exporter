@@ -1,3 +1,4 @@
+---
 # Using Venom https://github.com/ovh/venom
 # venom run tests.yml
 name: vault-pki-exporter
@@ -416,6 +417,26 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 200
           - result.body ShouldNotContainSubstring common_name="revokeme2.first-ca.example.com"
+  - name: Test Unmount first-ca to validate exporter clean old metrics
+    steps:
+      - name: unmountFirstCA
+        type: http
+        method: DELETE
+        url: {{.vaultHost}}/v1/sys/mounts/first-ca
+        headers:
+          X-Vault-Token: {{.vaultToken}}
+        assertions:
+          - result.statuscode ShouldEqual 204
+      - name: wait 20s
+        type: exec
+        script: sleep 20
+      - name: Make sure metrics are cleared for unmounted PKI
+        type: http
+        method: GET
+        url: {{.exporterURLCerts}}
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.body ShouldNotContainSubstring source="first-ca/"
   - name: docker compose down
     steps:
       - type: exec
